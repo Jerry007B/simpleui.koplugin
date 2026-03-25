@@ -6,21 +6,21 @@ msgid ""
 msgstr ""
 "Project-Id-Version: simpleui\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-24 17:26+0000\n"
-"PO-Revision-Date: 2026-03-24 17:26+0000\n"
+"POT-Creation-Date: 2026-03-16 21:54+0000\n"
+"PO-Revision-Date: 2026-03-25 00:00+0000\n"
 "Last-Translator: Daniel Osiński <daniel@osinski.fr>\n"
 "Language-Team: Français (France)\n"
-"Language: fr_FR\n"
+"Language: fr\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 
 
 msgid "  Physical Books  (%d in %s)"
-msgstr "  Livres physiques  (%d en %s)"
+msgstr "  Livres physiques  (%d sur %s)"
 
 msgid "  Set Goal  (%d books in %s)"
-msgstr "  Définir l'objectif  (%d livres en %s)"
+msgstr "  Définir l'objectif  (%d livres sur %s)"
 
 msgid "  Set Goal  (%d min/day)"
 msgstr "  Définir l'objectif  (%d min/jour)"
@@ -53,10 +53,10 @@ msgid "Add at least 2 stats to arrange."
 msgstr "Ajoutez au moins 2 statistiques à organiser."
 
 msgid "All time — Books"
-msgstr "Depuis toujours — Livres"
+msgstr "Depuis le début — Livres"
 
 msgid "All time — Time"
-msgstr "Depuis toujours — Temps"
+msgstr "Depuis le début — Temps"
 
 msgid "Annual Goal"
 msgstr "Objectif annuel"
@@ -80,7 +80,7 @@ msgid "Arrange Modules"
 msgstr "Organiser les modules"
 
 msgid "Arrange Reading Stats"
-msgstr "Organiser les stats de lecture"
+msgstr "Organiser les statistiques de lecture"
 
 msgid "Arrange tabs"
 msgstr "Organiser les onglets"
@@ -152,10 +152,10 @@ msgid "Daily Reading Goal"
 msgstr "Objectif de lecture quotidien"
 
 msgid "Daily avg — Pages"
-msgstr "Moy. quotidienne — Pages"
+msgstr "Moy./jour — Pages"
 
 msgid "Daily avg — Time"
-msgstr "Moy. quotidienne — Temps"
+msgstr "Moy./jour — Temps"
 
 msgid "Date"
 msgstr "Date"
@@ -287,7 +287,7 @@ msgid "Maximum %d quick actions reached. Delete one first."
 msgstr "Maximum de %d actions rapides atteint. Supprimez-en une d'abord."
 
 msgid "Maximum %d stats per row. Remove one first."
-msgstr "Maximum de %d stats par ligne. Supprimez-en une d'abord."
+msgstr "Maximum de %d statistiques par ligne. Supprimez-en une d'abord."
 
 msgid "Maximum %d tabs reached. Remove one first."
 msgstr "Maximum de %d onglets atteint. Supprimez-en un d'abord."
@@ -366,6 +366,12 @@ msgstr "Désactivé"
 
 msgid "On"
 msgstr "Activé"
+
+msgid "Open"
+msgstr "Ouvrir"
+
+msgid "Open \"%s\" to see this highlight?"
+msgstr "Ouvrir \"%s\" pour voir ce surlignage ?"
 
 msgid "Open a book to get started"
 msgstr "Ouvrez un livre pour commencer"
@@ -473,7 +479,7 @@ msgid "Statistics plugin not available."
 msgstr "Plugin de statistiques indisponible."
 
 msgid "Stats"
-msgstr "Stats"
+msgstr "Statistiques"
 
 msgid "Streak"
 msgstr "Série"
@@ -509,10 +515,10 @@ msgid "Today — Time"
 msgstr "Aujourd'hui — Temps"
 
 msgid "Top Bar"
-msgstr "Barre du haut"
+msgstr "Barre supérieure"
 
 msgid "Top Bar will be %s after restart.\n\nRestart now?"
-msgstr "La barre du haut sera %s après le redémarrage.\n\nRedémarrer maintenant ?"
+msgstr "La barre supérieure sera %s après le redémarrage.\n\nRedémarrer maintenant ?"
 
 msgid "Type"
 msgstr "Type"
@@ -536,13 +542,13 @@ msgid "books finished"
 msgstr "livres terminés"
 
 msgid "daily avg (7 days)"
-msgstr "moy. quotidienne (7 jours)"
+msgstr "moy./jour (7 jours)"
 
 msgid "day streak"
-msgstr "jour de série"
+msgstr "jour de lecture"
 
 msgid "days streak"
-msgstr "jours de série"
+msgstr "jours de lecture"
 
 msgid "disabled"
 msgstr "désactivé"
@@ -680,10 +686,10 @@ msgid "Global scale for all modules.\nIndividual overrides in Module Settings ta
 msgstr "Échelle globale pour tous les modules.\nLes valeurs individuelles dans les Paramètres du module ont la priorité.\n100% est la taille par défaut."
 
 msgid "Height of the bottom navigation bar.\n100% is the default size."
-msgstr "Hauteur de la barre de navigation du bas.\n100% est la taille par défaut."
+msgstr "Hauteur de la barre de navigation inférieure.\n100% est la taille par défaut."
 
 msgid "Height of the top status bar.\n100% is the default size."
-msgstr "Hauteur de la barre d'état du haut.\n100% est la taille par défaut."
+msgstr "Hauteur de la barre d'état supérieure.\n100% est la taille par défaut."
 
 msgid "Hidden"
 msgstr "Masqué"
@@ -783,10 +789,10 @@ msgid "Top"
 msgstr "Haut"
 
 msgid "Top Bar Size"
-msgstr "Taille de la barre du haut"
+msgstr "Taille de la barre supérieure"
 
 msgid "Top separator"
-msgstr "Séparateur du haut"
+msgstr "Séparateur supérieur"
 
 msgid "Visible"
 msgstr "Visible"
@@ -851,7 +857,7 @@ msgid "default"
 msgstr "défaut"
 
 msgid "Shows \"Page X of Y\" in the title bar subtitle when browsing the library, history or collections.\nNavpager enables this automatically.\nNot available when Navpager is active."
-msgstr "Affiche « Page X sur Y » dans la barre de titre lors de la navigation (bibliothèque, historique, collections).\nLe navigateur l'active automatiquement.\nIndisponible lorsque le navigateur est actif."
+msgstr "Affiche \"Page X sur Y\" dans la barre de titre lors de la navigation (bibliothèque, historique, collections).\nLe navigateur l'active automatiquement.\nIndisponible lorsque le navigateur est actif."
 
 msgid "Icon Size"
 msgstr "Taille des icônes"
@@ -909,3 +915,129 @@ msgstr "Barre de progression"
 
 msgid "Percentage read"
 msgstr "Pourcentage lu"
+
+msgid "Folder Name"
+msgstr "Nom du dossier"
+
+msgid "Number of Books in Folder"
+msgstr "Nombre de livres dans le dossier"
+
+msgid "Number of Pages"
+msgstr "Nombre de pages"
+
+msgid "Overlay"
+msgstr "Superposition"
+
+msgid "Overlays"
+msgstr "Superpositions"
+
+msgid "Uniformize Covers (2:3)"
+msgstr "Uniformiser les couvertures (2:3)"
+
+msgid "Invalid arrangement.\nKeep the Left, Center and Right separators in order."
+msgstr "Disposition invalide.\nGardez les séparateurs Gauche, Centre et Droite dans l'ordre."
+
+msgid "Disposition invalide.\nGardez les éléments entre les séparateurs Gauche et Droite."
+msgstr ""
+
+msgid "Fetching bookmarks\xe2\x80\xa6"
+msgstr "Récupération des signets…"
+
+msgid "Path chooser not available."
+msgstr "Sélecteur de chemin indisponible."
+
+msgid "e.g. Comics\xe2\x80\xa6"
+msgstr "ex. BD…"
+
+msgid "Top Margin  (%d%%)"
+msgstr "Marge supérieure  (%d%%)"
+
+msgid "Vertical space above this module.\n100% is the default spacing."
+msgstr "Espace vertical au-dessus du module.\n100% est l'espacement par défaut."
+
+msgid "Bottom Margin"
+msgstr "Marge inférieure"
+
+msgid "Bottom Margin — %d%%"
+msgstr "Marge inférieure — %d%%"
+
+msgid "Space below the bottom navigation bar.\n100% is the default spacing."
+msgstr "Espace sous la barre de navigation inférieure.\n100% est l'espacement par défaut."
+
+msgid "Badge position: Top"
+msgstr "Position du badge : Haut"
+
+msgid "Badge position: Bottom"
+msgstr "Position du badge : Bas"
+
+msgid "Flat"
+msgstr "Plat"
+
+msgid "Percentage text"
+msgstr "Texte de pourcentage"
+
+msgid "Percentage overlay on cover"
+msgstr "Pourcentage en superposition"
+
+msgid "Text Size — %d%%"
+msgstr "Taille du texte — %d%%"
+
+msgid "Size of the text inside the stat cards.\nDoes not affect card size or padding.\n100% is the default size."
+msgstr "Taille du texte dans les cartes de statistiques.\nN'affecte pas la taille des cartes.\n100% est la taille par défaut."
+
+msgid "Monday"
+msgstr "Lundi"
+
+msgid "Tuesday"
+msgstr "Mardi"
+
+msgid "Wednesday"
+msgstr "Mercredi"
+
+msgid "Thursday"
+msgstr "Jeudi"
+
+msgid "Friday"
+msgstr "Vendredi"
+
+msgid "Saturday"
+msgstr "Samedi"
+
+msgid "Sunday"
+msgstr "Dimanche"
+
+msgid "January"
+msgstr "Janvier"
+
+msgid "February"
+msgstr "Février"
+
+msgid "March"
+msgstr "Mars"
+
+msgid "April"
+msgstr "Avril"
+
+msgid "May"
+msgstr "Mai"
+
+msgid "June"
+msgstr "Juin"
+
+msgid "July"
+msgstr "Juillet"
+
+msgid "August"
+msgstr "Août"
+
+msgid "September"
+msgstr "Septembre"
+
+msgid "October"
+msgstr "Octobre"
+
+msgid "November"
+msgstr "Novembre"
+
+msgid "December"
+msgstr "Décembre"
