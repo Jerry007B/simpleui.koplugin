@@ -267,6 +267,9 @@ msgstr ""
 #: desktop_modules/module_reading_goals.lua:366
 #: desktop_modules/module_reading_goals.lua:383
 #: desktop_modules/module_reading_goals.lua:401
+#: sui_updater.lua:184
+#: sui_updater.lua:237
+#: sui_updater.lua:258
 msgid "Cancel"
 msgstr ""
 
@@ -676,6 +679,7 @@ msgstr ""
 #: sui_menu.lua:627
 #: sui_menu.lua:948
 #: sui_menu.lua:1524
+#: sui_updater.lua:184
 msgid "Later"
 msgstr ""
 
@@ -1119,6 +1123,7 @@ msgstr ""
 #: sui_menu.lua:627
 #: sui_menu.lua:947
 #: sui_menu.lua:1524
+#: sui_updater.lua:183
 msgid "Restart"
 msgstr ""
 
@@ -1698,20 +1703,6 @@ msgstr ""
 
 #: sui_updater.lua:180
 msgid "Simple UI %s successfully installed.\n\nRestart KOReader to apply the update?"
-msgstr ""
-
-#: sui_updater.lua:183
-msgid "Restart"
-msgstr ""
-
-#: sui_updater.lua:184
-#: sui_updater.lua:237
-#: sui_updater.lua:258
-msgid "Cancel"
-msgstr ""
-
-#: sui_updater.lua:184
-msgid "Later"
 msgstr ""
 
 #: sui_updater.lua:194
