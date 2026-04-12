@@ -309,11 +309,34 @@ function SimpleUIPlugin:onScreenResize()
     UI.invalidateDimCache()
     UIManager:scheduleIn(0.2, function()
         if self._simpleui_suspended then return end
+        local RUI = package.loaded["apps/reader/readerui"]
+        if RUI and RUI.instance then return end
+
+        -- If the homescreen is open, close and reopen it so HomescreenWidget:new
+        -- runs with the new screen dimensions. rewrapAllWidgets cannot resize it
+        -- correctly because its layout is built entirely in init(), not via
+        -- wrapWithNavbar — the same reason FM uses reinit() (= rotate()) instead
+        -- of a simple rewrap.
+        local HS = package.loaded["sui_homescreen"]
+        if HS and HS._instance then
+            local hs_inst = HS._instance
+            hs_inst._navbar_closing_intentionally = true
+            pcall(function() UIManager:close(hs_inst) end)
+            hs_inst._navbar_closing_intentionally = nil
+            if not self._goalTapCallback then self:addToMainMenu({}) end
+            local tabs = Config.loadTabConfig()
+            Bottombar.setActiveAndRefreshFM(self, "homescreen", tabs)
+            HS.show(
+                function(aid) self:_navigate(aid, self.ui, Config.loadTabConfig(), false) end,
+                self._goalTapCallback
+            )
+            return
+        end
+
         self:_rewrapAllWidgets()
         self:_refreshCurrentView()
     end)
 end
-
 function SimpleUIPlugin:onNetworkConnected()
     if self._simpleui_suspended then return end
     local RUI = package.loaded["apps/reader/readerui"]

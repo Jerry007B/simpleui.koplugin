@@ -140,6 +140,28 @@ function M.patchFileManagerClass(plugin)
         -- Reset the "first show" guard so onShow reinitialises on the next open.
         fm_self._navbar_already_shown = nil
 
+        -- If HomescreenWidget:onSetRotationMode signalled a rotation reopen,
+        -- open the HS directly via scheduleIn(0) now that setupLayout has
+        -- rebuilt the FM at the new screen dimensions.
+        -- We cannot rely on onShow here because the FM is already on the
+        -- UIManager stack during reinit -- onShow only fires on first push.
+        local HS = liveHS()
+        if HS and HS._rotation_pending then
+            HS._rotation_pending = false
+            local rot_qa_tap   = HS._rotation_on_qa_tap
+            local rot_goal_tap = HS._rotation_on_goal_tap
+            HS._rotation_on_qa_tap   = nil
+            HS._rotation_on_goal_tap = nil
+            UIManager:scheduleIn(0, function()
+                local HS2 = liveHS()
+                if not HS2 then return end
+                if not plugin._goalTapCallback then plugin:addToMainMenu({}) end
+                local qa_tap   = rot_qa_tap   or function(aid) plugin:_navigate(aid, plugin.ui, Config.loadTabConfig(), false) end
+                local goal_tap = rot_goal_tap or plugin._goalTapCallback
+                HS2.show(qa_tap, goal_tap)
+            end)
+        end
+
         -- Patch FileChooser once on the class (not per instance) to shrink it
         -- to the content area and to flag external path changes.
         local FileChooser = require("ui/widget/filechooser")
@@ -241,12 +263,20 @@ function M.patchFileManagerClass(plugin)
 
         orig_setupLayout(fm_self)
 
-        -- Apply title-bar customisations (no-op when the setting is off).
-        Titlebar.apply(fm_self)
+        -- Re-apply title-bar customisations to the fresh TitleBar instance that
+        -- orig_setupLayout just created.  We must use reapply (restore + apply)
+        -- rather than apply alone: apply guards itself with _titlebar_patched so
+        -- it is a no-op on subsequent calls (e.g. after a rotation reinit) unless
+        -- the flag is cleared first.  The restore step is safe on a brand-new
+        -- title_bar because apply() overwrites all geometry afterwards anyway.
+        Titlebar.reapply(fm_self)
 
-        -- Keep the original inner widget so repeated setupLayout calls wrap
-        -- the same child rather than wrapping the wrapper.
-        local inner_widget = fm_self._navbar_inner or fm_self[1]
+        -- orig_setupLayout always sets fm_self[1] to a freshly built fm_ui
+        -- (new FileChooser with correct dimensions). Always use that fresh widget
+        -- as the inner content — caching _navbar_inner across reinit() calls
+        -- would wrap the stale previous fm_ui, which has the old screen dimensions,
+        -- causing the library to render incorrectly after a rotation.
+        local inner_widget = fm_self[1]
         fm_self._navbar_inner = inner_widget
 
         local tabs = Config.loadTabConfig()
@@ -255,6 +285,12 @@ function M.patchFileManagerClass(plugin)
         UI.applyNavbarState(fm_self, navbar_container, bar, topbar, bar_idx, topbar_on2, topbar_idx, tabs)
         fm_self[1] = wrapped
         fm_self._simpleui_plugin = plugin
+
+        -- Resize pagination buttons (chevrons) on every setupLayout call so that
+        -- they use the correct Simple UI size after rotation rebuilds the FM.
+        -- onShow only fires on the first push to the UIManager stack, so without
+        -- this the buttons keep their default KOReader size after a rotation.
+        Bottombar.resizePaginationButtons(fm_self.file_chooser or fm_self, Bottombar.getPaginationIconSize())
 
         plugin:_updateFMHomeIcon()
 
@@ -273,19 +309,22 @@ function M.patchFileManagerClass(plugin)
             if orig_onShow then orig_onShow(this) end
             Bottombar.resizePaginationButtons(this.file_chooser or this, Bottombar.getPaginationIconSize())
 
-            -- Open the homescreen if it was flagged at setupLayout time (boot).
+            -- Open the homescreen if it was flagged at setupLayout time (boot or rotation).
             if this._hs_autoopen_pending then
                 this._hs_autoopen_pending = nil
+                local rot_qa_tap   = this._hs_rotation_on_qa_tap
+                local rot_goal_tap = this._hs_rotation_on_goal_tap
+                this._hs_rotation_on_qa_tap   = nil
+                this._hs_rotation_on_goal_tap = nil
                 UIManager:scheduleIn(0, function()
                     local HS = liveHS() or (function()
                         local ok, m = pcall(require, "sui_homescreen"); return ok and m
                     end)()
                     if HS then
                         if not plugin._goalTapCallback then plugin:addToMainMenu({}) end
-                        HS.show(
-                            function(aid) plugin:_navigate(aid, plugin.ui, Config.loadTabConfig(), false) end,
-                            plugin._goalTapCallback
-                        )
+                        local qa_tap   = rot_qa_tap   or function(aid) plugin:_navigate(aid, plugin.ui, Config.loadTabConfig(), false) end
+                        local goal_tap = rot_goal_tap or plugin._goalTapCallback
+                        HS.show(qa_tap, goal_tap)
                     end
                 end)
                 return
@@ -334,19 +373,6 @@ function M.patchFileManagerClass(plugin)
         end
 
         plugin:_registerTouchZones(fm_self)
-
-        -- onSetRotationMode: block non-portrait rotations in the FM.
-        -- Invalidates the dimension cache before blocking so onScreenResize
-        -- does not use stale values. The reader is unaffected (separate instance).
-        fm_self.onSetRotationMode = function(_self, mode)
-            if mode ~= 0 then
-                local ok, err = pcall(Bottombar.invalidateDimCache, Bottombar)
-                if not ok then
-                    logger.warn("simpleui: onSetRotationMode error:", tostring(err))
-                end
-            end
-            return true
-        end
 
         -- onPathChanged: update the active tab when the user navigates directories.
         -- Skipped when _navbar_suppress_path_change is set (programmatic navigation).
