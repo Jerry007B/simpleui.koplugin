@@ -372,6 +372,20 @@ end
 
 function SimpleUIPlugin:onSuspend()
     self._simpleui_suspended = true
+    -- Close the TouchMenu (main KOReader menu) if it is open when the device
+    -- suspends. Without this, the menu stays painted on screen and its event
+    -- handlers remain live, causing visual artifacts and stale state on wakeup.
+    for widget in UIManager:topdown_widgets_iter() do
+        if widget.ges_events and widget.ges_events.TapCloseAllMenus then
+            -- This is a TouchMenu instance. Close it cleanly.
+            if widget.closeMenu then
+                widget:closeMenu()
+            elseif widget.close_callback then
+                widget.close_callback()
+            end
+            break
+        end
+    end
     -- Snapshot whether the reader was open at the moment of suspend.
     -- We cannot rely on RUI.instance being intact by the time onResume fires
     -- (e.g. autosuspend can race with a reader teardown on some Kobo builds),
