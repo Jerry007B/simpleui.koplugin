@@ -8,7 +8,7 @@
 
 --   "mixed"      — random pick between both sources
 
---   "custom"     — random quote from a user-supplied .lua file in the plugin's custom/ folder
+--   "custom"     — random quote from a user-supplied .lua file in the plugin's desktop_modules/custom_quotes/ folder
 
 
 
@@ -110,22 +110,22 @@ local function getCustomFile(pfx)
     return G_reader_settings:readSetting((pfx or "") .. SETTING_CUSTOM_FILE) or ""
 end
 
--- Returns the absolute path to the plugin's custom/ directory.
+-- Returns the absolute path to the plugin's desktop_modules/custom_quotes/ directory.
 local _CUSTOM_DIR
 local function customDir()
     if not _CUSTOM_DIR then
         local info = debug.getinfo(1, "S")
         local src  = info and info.source and info.source:match("^@(.+)$")
         if src then
-            _CUSTOM_DIR = src:match("(.+)/[^/]+$"):match("(.+)/[^/]+$") .. "/custom"
+            _CUSTOM_DIR = src:match("(.+)/[^/]+$") .. "/custom_quotes"
         else
-            _CUSTOM_DIR = "custom"
+            _CUSTOM_DIR = "desktop_modules/custom_quotes"
         end
     end
     return _CUSTOM_DIR
 end
 
--- Scans custom/ for .lua files; returns a sorted list of filenames.
+-- Scans desktop_modules/custom_quotes/ for .lua files; returns a sorted list of filenames.
 local function listCustomQuoteFiles()
     local dir   = customDir()
     local files = {}
@@ -828,7 +828,7 @@ local function buildFromCustomQuote(inner_w, face_quote, face_attr, vspan_gap, p
 
         return TextBoxWidget:new{
 
-            text    = _("No custom quotes found. Add a .lua file to the plugin\'s custom/ folder and select it in Settings."),
+            text    = _("No custom quotes found. Add a .lua file to the plugin\'s desktop_modules/custom_quotes/ folder and select it in Settings."),
 
             face    = face_quote,
 
@@ -1272,7 +1272,7 @@ function M.getMenuItems(ctx_menu)
 
                         if #files == 0 then
                             subitems[#subitems + 1] = {
-                                text    = _lc("No .lua files found in custom/"),
+                                text    = _lc("No .lua files found in custom_quotes/"),
                                 enabled = false,
                             }
                         else
@@ -1297,7 +1297,7 @@ function M.getMenuItems(ctx_menu)
                         end
 
                         subitems[#subitems + 1] = {
-                            text    = _lc("Place .lua files in the plugin's custom/ folder"),
+                            text    = _lc("Place .lua files in the plugin's desktop_modules/custom_quotes/ folder"),
                             enabled = false,
                         }
 

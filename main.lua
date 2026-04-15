@@ -214,7 +214,7 @@ end
 local _PLUGIN_MODULES = {
     "sui_i18n", "sui_config", "sui_core", "sui_bottombar", "sui_topbar",
     "sui_patches", "sui_menu", "sui_titlebar", "sui_quickactions",
-    "sui_homescreen", "sui_foldercovers", "sui_updater", "sui_metabrowser",
+    "sui_homescreen", "sui_foldercovers", "sui_browsemeta", "sui_updater",
     "desktop_modules/moduleregistry",
     "desktop_modules/module_books_shared",
     "desktop_modules/module_clock",
@@ -288,6 +288,10 @@ function SimpleUIPlugin:onTeardown()
     local mod_rg = package.loaded["desktop_modules/module_reading_goals"]
     if mod_rg and type(mod_rg.reset) == "function" then
         pcall(mod_rg.reset)
+    end
+    local mod_bm = package.loaded["sui_browsemeta"]
+    if mod_bm and type(mod_bm.reset) == "function" then
+        pcall(mod_bm.reset)
     end
     -- Evict all plugin modules from the Lua module cache so that a hot update
     -- (files replaced on disk without restarting KOReader) picks up new code
@@ -403,6 +407,17 @@ function SimpleUIPlugin:onResume()
     if not reader_active then
         local HS = package.loaded["sui_homescreen"]
         if HS and HS._instance then
+            -- Refresh the QA tap callback on the live homescreen instance.
+            -- If the device suspended while the homescreen (or the touch menu
+            -- floating on top of it) was open, HS._instance survives but its
+            -- _on_qa_tap closure may reference a stale FileManager object.
+            -- Reassigning it here ensures QA buttons work on the very first
+            -- tap after wakeup, without requiring the user to navigate away
+            -- and reopen the homescreen.
+            local plugin_ref = self
+            HS._instance._on_qa_tap = function(aid)
+                plugin_ref:_navigate(aid, plugin_ref.ui, Config.loadTabConfig(), false)
+            end
             HS.refresh(true)
         end
         -- Re-open the Homescreen on wakeup when \"Start with Homescreen\" is set.

@@ -29,6 +29,12 @@ local function _QA()
     return package.loaded["sui_quickactions"] or require("sui_quickactions")
 end
 
+-- Lazy reference to sui_browsemeta — avoids loading the module at startup when
+-- the Browse by Authors/Series feature may not be in use.
+local function _BM()
+    return package.loaded["sui_browsemeta"] or require("sui_browsemeta")
+end
+
 -- Action-only tabs: these fire a dialog/toggle without becoming the active tab.
 -- Used by onTabTap (early-return guard) AND setActiveAndRefreshFM (write guard).
 -- Keeping the list in one place makes it impossible for the two sites to drift.
@@ -1310,16 +1316,6 @@ function M.navigate(plugin, action_id, fm_self, tabs, force)
         if fm.collections then fm.collections:onShowCollList()
         else showUnavailable(_("Collections not available.")) end
 
-    elseif action_id == "authors" or action_id == "series" then
-        local ok_mb, MB = pcall(require, "sui_metabrowser")
-        if ok_mb and MB and type(MB.show) == "function" then
-            MB.show(fm, action_id)
-        else
-            showUnavailable(action_id == "authors"
-                and _("Authors not available.")
-                or _("Series not available."))
-        end
-
     elseif action_id == "history" then
         local ok = pcall(function() fm.history:onShowHist() end)
         if not ok then showUnavailable(_("History not available.")) end
@@ -1408,6 +1404,29 @@ function M.navigate(plugin, action_id, fm_self, tabs, force)
 
     elseif action_id == "wifi_toggle" then
         M.doWifiToggle(plugin); return
+
+    elseif action_id == "browse_authors" or action_id == "browse_series" then
+        local bm_mode = (action_id == "browse_authors") and "author" or "series"
+        local ok_bm, BM = pcall(_BM)
+        if not (ok_bm and BM) then
+            showUnavailable(_("Browse by Authors/Series not available."))
+            return
+        end
+        if not BM.isEnabled() then
+            showUnavailable(_("Enable 'Browse by Author / Series' in the library menu first."))
+            return
+        end
+        local live_fm = plugin.ui or fm
+        local fc = live_fm and live_fm.file_chooser
+        if not fc then return end
+        if already_active then
+            -- Re-tap: return to the virtual root (top of Authors/Series list,
+            -- page 1, up button hidden) without leaving the virtual tree.
+            BM.navigateToRoot(fc, live_fm, bm_mode)
+        else
+            BM.navigateTo(live_fm, bm_mode)
+        end
+        return
 
     else
         if action_id:match("^custom_qa_%d+$") then

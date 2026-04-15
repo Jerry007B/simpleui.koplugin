@@ -418,9 +418,22 @@ function M.patchFileManagerClass(plugin)
 
         -- onCloseAllMenus: fires when the KOReader main menu (TouchMenu) closes.
         -- Re-registers touch zones and repaints the bar so stale handlers are fixed.
+        -- Also refreshes the homescreen QA tap callback: if the device suspended
+        -- while the touch menu was open over the homescreen, the HS survives but
+        -- its _on_qa_tap may be stale.  Refreshing it here covers the case where
+        -- the user simply closes the touch menu without sleeping (e.g. back-key),
+        -- and also acts as a safety net complementing the onResume fix.
         local orig_onCloseAllMenus = fm_self.onCloseAllMenus
         fm_self.onCloseAllMenus = function(this)
             if orig_onCloseAllMenus then orig_onCloseAllMenus(this) end
+            -- Refresh the live homescreen's QA tap callback first so it is
+            -- current before any repaint that follows.
+            local HS_live = liveHS()
+            if HS_live and HS_live._instance then
+                HS_live._instance._on_qa_tap = function(aid)
+                    plugin:_navigate(aid, plugin.ui, Config.loadTabConfig(), false)
+                end
+            end
             if not this._navbar_container then return end
             local t = Config.loadTabConfig()
             plugin:_registerTouchZones(this)
@@ -1912,7 +1925,18 @@ function M.showHSAfterResume(plugin)
     if not tabInTabs("homescreen", tabs) then return end
 
     local HS = liveHS()
-    if HS and HS._instance then return end
+    if HS and HS._instance then
+        -- The homescreen was already open when the device suspended (e.g. the
+        -- touch menu was open on top of it).  We must NOT re-show the HS, but
+        -- we DO need to refresh the QA tap callback in case it captured a now-
+        -- stale FileManager reference.  main.lua:onResume does this too, but
+        -- the callback here is the authoritative one passed to HS.show() — keep
+        -- both in sync so whichever fires first is already correct.
+        HS._instance._on_qa_tap = function(aid)
+            plugin:_navigate(aid, plugin.ui, Config.loadTabConfig(), false)
+        end
+        return
+    end
 
     if UIManager._exit_code ~= nil then return end
 
@@ -1922,7 +1946,14 @@ function M.showHSAfterResume(plugin)
         local RUI2 = package.loaded["apps/reader/readerui"]
         if RUI2 and RUI2.instance then return end
         local HS2 = liveHS()
-        if HS2 and HS2._instance then return end
+        if HS2 and HS2._instance then
+            -- Same staleness guard for the deferred path: the HS appeared
+            -- between the outer check and the scheduleIn(0) callback.
+            HS2._instance._on_qa_tap = function(aid)
+                plugin:_navigate(aid, plugin.ui, Config.loadTabConfig(), false)
+            end
+            return
+        end
 
         local fm = liveFM()
         if not fm then return end
@@ -2100,6 +2131,11 @@ function M.installAll(plugin)
     if ok_fc and FC and FC.isEnabled() then
         pcall(FC.install)
     end
+    -- Virtual author/series browser — installed only when the feature is enabled
+    -- in settings (default: on). When disabled, FileChooser is left unpatched so
+    -- third-party user-patches (e.g. 2-author-series.lua) can run unobstructed.
+    local ok_bm, BM = pcall(require, "sui_browsemeta")
+    if ok_bm and BM and BM.isEnabled() then pcall(BM.install) end
 end
 
 function M.teardownAll(plugin)
@@ -2266,6 +2302,12 @@ function M.teardownAll(plugin)
 
     local FC = package.loaded["sui_foldercovers"]
     if FC then pcall(FC.uninstall) end
+
+    local BM = package.loaded["sui_browsemeta"]
+    if BM then
+        pcall(BM.uninstall)
+        pcall(BM.reset)
+    end
 end
 
 -- ---------------------------------------------------------------------------

@@ -78,6 +78,10 @@ SimpleUIPlugin.addToMainMenu = function(self, menu_items)
     -- Currently only "frontlight" is hardware-gated; all other ids are always shown.
     local function actionAvailable(id)
         if id == "frontlight" then return hasFrontlight() end
+        if id == "browse_authors" or id == "browse_series" then
+            local ok_bm, BM = pcall(require, "sui_browsemeta")
+            return ok_bm and BM and BM.isEnabled()
+        end
         return true
     end
 
@@ -1975,6 +1979,46 @@ SimpleUIPlugin.addToMainMenu = function(self, menu_items)
                                     end
                                 end
                                 return {
+                                    {
+                                        text         = _("Browse by Author / Series"),
+                                        checked_func = function()
+                                            local ok_bm, BM = pcall(require, "sui_browsemeta")
+                                            return ok_bm and BM and BM.isEnabled()
+                                        end,
+                                        separator    = true,
+                                        callback     = function()
+                                            local ok_bm, BM = pcall(require, "sui_browsemeta")
+                                            if not (ok_bm and BM) then return end
+                                            local enabling = not BM.isEnabled()
+                                            BM.setEnabled(enabling)
+                                            -- Teardown titlebar FIRST so the fc.genItemTable hook
+                                            -- (which holds BM upvalues) is removed before
+                                            -- BM.uninstall() nils _orig_genItemTable.
+                                            local FM2 = package.loaded["apps/filemanager/filemanager"]
+                                            local fm2 = FM2 and FM2.instance
+                                            if fm2 then
+                                                local ok_tb, TB = pcall(require, "sui_titlebar")
+                                                if ok_tb and TB then pcall(TB.restore, fm2) end
+                                            end
+                                            if enabling then
+                                                pcall(BM.install)
+                                            else
+                                                -- Exit virtual tree before uninstalling.
+                                                local fc2 = fm2 and fm2.file_chooser
+                                                if fc2 and fc2.path then
+                                                    if fc2.path:find("/\u{E257}", 1, true) then
+                                                        BM.exitToNormal(fc2, fm2)
+                                                    end
+                                                end
+                                                pcall(BM.uninstall)
+                                            end
+                                            -- Rebuild titlebar (with or without browse button).
+                                            if fm2 then
+                                                local ok_tb, TB = pcall(require, "sui_titlebar")
+                                                if ok_tb and TB then pcall(TB.apply, fm2) end
+                                            end
+                                        end,
+                                    },
                                     {
                                         text         = _("Folder Covers"),
                                         checked_func = function() return FC.isEnabled() end,
