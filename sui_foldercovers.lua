@@ -823,6 +823,25 @@ local function _sgProcessItemTable(item_table, file_chooser)
     -- Skip folder-chooser dialogs (show_current_dir_for_hold is set).
     if file_chooser.show_current_dir_for_hold then return end
 
+    -- Evict stale _sg_items_cache entries for the current directory before
+    -- reprocessing. Without this, the cache grows unboundedly across
+    -- reader->HS cycles: every switchItemTable call adds new virtual-path
+    -- entries but nothing removes old ones, so the Lua GC heap grows with
+    -- each session and the HS slows down progressively.
+    -- Entries for other directories are preserved (they are still valid).
+    local current_path = file_chooser.path
+    if current_path then
+        -- vpaths are built as base_path..sname where base_path ends with "/",
+        -- so normalise the prefix the same way.
+        local prefix = current_path
+        if prefix:sub(-1) ~= "/" then prefix = prefix .. "/" end
+        for k in pairs(_sg_items_cache) do
+            if k:sub(1, #prefix) == prefix then
+                _sg_items_cache[k] = nil
+            end
+        end
+    end
+
     local ok_bim, BookInfoManager = pcall(require, "bookinfomanager")
     if not ok_bim or not BookInfoManager then return end
 
@@ -1469,13 +1488,13 @@ function M.install()
 
         -- Strip status filter so finished/on-hold books can still supply cover art
         -- even when the browser is configured to show only new/reading books.
-        local FileChooser_fc  = require("ui/widget/filechooser")
-        local saved_filter_fc = FileChooser_fc.show_filter
-        FileChooser_fc.show_filter = {}
+        -- FileChooser is already required at module level — no per-item require().
+        local saved_filter_fc = FileChooser.show_filter
+        FileChooser.show_filter = {}
         self.menu._dummy = true
         local entries = self.menu:genItemTableFromPath(dir_path)
         self.menu._dummy = false
-        FileChooser_fc.show_filter = saved_filter_fc
+        FileChooser.show_filter = saved_filter_fc
         if not entries then return end
 
         -- Track whether this folder has direct ebooks or only subfolders,
@@ -1685,6 +1704,23 @@ function M.install()
         end
         local text = self._fc_display_text
 
+        -- Cache key: the binary searches depend on available_w and the
+        -- effective max font size. Both are stable for a given cell size
+        -- and label scale, so the result is safe to reuse across renders
+        -- of the same item without re-running the widget allocations.
+        local cache_key = available_w .. "\0" .. (dir_max_font_size or _BASE_DIR_FS)
+        if self._fc_font_size_cache
+            and self._fc_font_size_cache[cache_key] then
+            local dir_font_size = self._fc_font_size_cache[cache_key]
+            return TextBoxWidget:new{
+                text      = text,
+                face      = Font:getFace("cfont", dir_font_size),
+                width     = available_w,
+                alignment = "center",
+                bold      = true,
+            }
+        end
+
         local longest_word = ""
         for word in text:gmatch("%S+") do
             if #word > #longest_word then longest_word = word end
@@ -1723,6 +1759,13 @@ function M.install()
             if fits then lo = mid else hi = mid - 1 end
         end
         dir_font_size = lo
+
+        -- Store the result so subsequent renders of the same item skip
+        -- the binary searches entirely (no widget allocations at all).
+        if not self._fc_font_size_cache then
+            self._fc_font_size_cache = {}
+        end
+        self._fc_font_size_cache[cache_key] = dir_font_size
 
         return TextBoxWidget:new{
             text      = text,
