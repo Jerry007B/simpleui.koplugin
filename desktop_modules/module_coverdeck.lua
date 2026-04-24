@@ -64,10 +64,11 @@ end
 -- Settings keys
 -- ---------------------------------------------------------------------------
 
-local SETTING_INDEX     = "flow_recent_index"
-local SETTING_FP        = "flow_recent_fp"    -- GUARDA O FICHEIRO CENTRADO
-local SETTING_SOURCE    = "flow_recent_source"
-local SETTING_TITLE_POS = "coverdeck_title_pos"
+local SETTING_INDEX         = "flow_recent_index"
+local SETTING_FP            = "flow_recent_fp"    -- GUARDA O FICHEIRO CENTRADO
+local SETTING_SOURCE        = "flow_recent_source"
+local SETTING_TITLE_POS     = "coverdeck_title_pos"
+local SETTING_SHOW_FINISHED = "coverdeck_show_finished"  -- pfx .. this; default OFF
 local ELEM_ORDER_KEY    = "flow_stats_order"
 
 local _ELEM_DEFAULT_ORDER = { "percent", "book_days", "book_time", "book_remaining" }
@@ -106,6 +107,10 @@ end
 
 local function getTitlePos(pfx)
     return G_reader_settings:readSetting(pfx .. SETTING_TITLE_POS) or "below"
+end
+
+local function showFinished(pfx)
+    return G_reader_settings:readSetting(pfx .. SETTING_SHOW_FINISHED) == true
 end
 
 local function _showElem(pfx, key)
@@ -815,6 +820,15 @@ function M.getMenuItems(ctx_menu)
     menu[#menu+1] = source_item
     menu[#menu+1] = title_pos_item
     menu[#menu+1] = items_item
+    menu[#menu+1] = {
+        text           = _lc("Show finished books"),
+        checked_func   = function() return showFinished(pfx) end,
+        keep_menu_open = true,
+        callback       = function()
+            G_reader_settings:saveSetting(pfx .. SETTING_SHOW_FINISHED, not showFinished(pfx))
+            refresh()
+        end,
+    }
     return menu
 end
 

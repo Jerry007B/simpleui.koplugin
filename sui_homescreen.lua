@@ -1506,7 +1506,14 @@ function HomescreenWidget:_buildCtx()
                 -- Prefetch 10 entradas para que ctx.prefetched cubra todos os slots
                 -- e getBookData() nunca caia no slow-path (DS.open síncrono) durante build().
                 local max_recent = (mod_cd and Registry.isEnabled(mod_cd, PFX)) and 10 or 5
-                self._cached_books_state = SH.prefetchBooks(show_c, show_r, max_recent)
+                -- show_finished is true if ANY active module has opted in.
+                local show_finished =
+                    (mod_r  and Registry.isEnabled(mod_r,  PFX) and
+                        G_reader_settings:readSetting(PFX .. "recent_show_finished") == true)
+                    or
+                    (mod_cd and Registry.isEnabled(mod_cd, PFX) and
+                        G_reader_settings:readSetting(PFX .. "coverdeck_show_finished") == true)
+                self._cached_books_state = SH.prefetchBooks(show_c, show_r, max_recent, show_finished)
                 if Config.cover_extraction_pending then
                     self:_scheduleCoverPoll()
                 end
