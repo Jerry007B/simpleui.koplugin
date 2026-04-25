@@ -95,8 +95,9 @@ local M = {}
 -- (including _openSeriesGroupCoverPicker and _installFileDialogButton,
 -- which are defined before the series-grouping section) can reference
 -- these as upvalues rather than globals.
-local _sg_current     = nil   -- active virtual folder state (or nil)
-local _sg_items_cache = {}    -- virtual_path → {series_items}
+local _sg_current           = nil   -- active virtual folder state (or nil)
+local _sg_items_cache       = {}    -- virtual_path → {series_items}
+local _sg_last_evicted_path = nil   -- last path for which _sg_items_cache was evicted
 
 function M.isEnabled()    return G_reader_settings:isTrue(SK.enabled)  end
 function M.setEnabled(v)  G_reader_settings:saveSetting(SK.enabled, v) end
@@ -865,8 +866,15 @@ local function _sgProcessItemTable(item_table, file_chooser)
     -- entries but nothing removes old ones, so the Lua GC heap grows with
     -- each session and the HS slows down progressively.
     -- Entries for other directories are preserved (they are still valid).
+    --
+    -- Guard: only evict when the path actually changed since the last eviction.
+    -- switchItemTable is called on every refreshPath (including reader->HS),
+    -- so running the loop unconditionally burns CPU on every book close even
+    -- when the user never navigated the FM. The path is stable across those
+    -- calls, so a single eviction per directory visit is sufficient.
     local current_path = file_chooser.path
-    if current_path then
+    if current_path and current_path ~= _sg_last_evicted_path then
+        _sg_last_evicted_path = current_path
         -- vpaths are built as base_path..sname where base_path ends with "/",
         -- so normalise the prefix the same way.
         local prefix = current_path
@@ -1215,40 +1223,29 @@ local function _installSeriesGrouping()
     -- refreshPath: re-enter the virtual folder after a reload (e.g. after
     -- closing a book and returning to the library).
     FileChooser.refreshPath = function(fc)
-        -- Only flush the item cache when the FM library was actually navigated
-        -- since the last homescreen open. When returning directly from a book
-        -- (reader→homescreen, no FM browsing in between) the cache entries are
-        -- still valid: the cache key encodes path + filename + collate, none of
-        -- which change just because a book was read. Flushing unconditionally
-        -- forced a full filesystem scan on every book close, adding ~1-3 s on
-        -- large libraries on slow e-reader flash storage.
-        --
-        -- _library_was_visited is set by sui_patches.lua's onPathChanged hook
-        -- (fires on every FM directory change) and cleared by the homescreen on
-        -- close — the same guard the homescreen itself uses for its own cover cache.
-        -- We read it without consuming it here: the homescreen's onCloseWidget
-        -- is responsible for clearing it, ensuring both caches are invalidated
-        -- together when warranted.
         -- The getListItem cache key encodes path, filename, status filter and
         -- collate, but NOT the per-book status/percent_finished value — those
         -- live inside the item returned by _orig_getListItem. When the user
         -- changes a book's status (e.g. reading→complete) the FM calls
-        -- refreshPath to re-sort the list. If we only flush the cache when
-        -- _library_was_visited is set, the stale item is returned from cache
-        -- and the book does not move to its new sort position.
-        -- Flushing unconditionally on every refreshPath is the safe fix:
-        -- the cache repopulates in a single updateItems pass and the guard
-        -- for reader->HS (no navigation) remains in the _library_was_visited
-        -- check that the homescreen uses for its own cover cache.
+        -- refreshPath to re-sort the list. Flushing unconditionally is the safe
+        -- fix: the cache repopulates in a single updateItems pass.
         _cache = {}
         _cache_count = 0
-        -- Always invalidate the filesystem-level cover caches on refreshPath
-        -- so that a .cover file added/removed by the user or a new book placed
-        -- in a folder is reflected without requiring a plugin restart.
-        -- These are cheap to repopulate (one lfs.attributes per extension per
-        -- folder, one lfs.dir per folder) so unconditional clearing is safe.
-        for k in pairs(_cover_file_cache)   do _cover_file_cache[k]   = nil end
-        for k in pairs(_lm_dir_cover_cache) do _lm_dir_cover_cache[k] = nil end
+
+        -- The filesystem-level cover caches (_cover_file_cache, _lm_dir_cover_cache)
+        -- encode disk state: whether a .cover.* file exists and which book cover
+        -- to use for a given folder. This state does not change just because the
+        -- user was reading — it only changes when files are added/removed via the
+        -- FM. Guard with _library_was_visited (set by onPathChanged on every FM
+        -- directory change, cleared by the homescreen on close) so that on a plain
+        -- reader->HS transition these caches are preserved and the subsequent
+        -- updateItems call avoids the lfs.attributes×5 + lfs.dir scan per folder.
+        local HS = package.loaded["sui_homescreen"]
+        if HS and HS._library_was_visited then
+            for k in pairs(_cover_file_cache)   do _cover_file_cache[k]   = nil end
+            for k in pairs(_lm_dir_cover_cache) do _lm_dir_cover_cache[k] = nil end
+        end
+
         _sg_orig_refreshPath(fc)
         if not M.getSeriesGrouping() then return end
         if not _sg_current then return end
@@ -1340,8 +1337,9 @@ local function _uninstallSeriesGrouping()
         _sg_orig_updateItems = nil
     end
     FileChooser._simpleui_sg_patched = nil
-    _sg_current     = nil
-    _sg_items_cache = {}
+    _sg_current           = nil
+    _sg_items_cache       = {}
+    _sg_last_evicted_path = nil
 end
 
 -- ---------------------------------------------------------------------------
@@ -1438,6 +1436,24 @@ function M.install()
         if not self.do_cover_image        then return end
         if not M.isEnabled()              then return end
         if self.entry.is_file or self.entry.file or not self.mandatory then return end
+
+        -- Defer the first folder-cover render pass when the homescreen is
+        -- visible and the FM is in the background. The HS has no folder covers
+        -- of its own, so the user sees nothing during this tick. Rendering is
+        -- scheduled for the next tick so the HS paint completes first, making
+        -- the reader->HS transition feel instant. Subsequent updateItems calls
+        -- (with _fc_hs_deferred already consumed) run normally.
+        local HS = package.loaded["sui_homescreen"]
+        if HS and HS._instance and not self.menu._fc_hs_deferred then
+            self.menu._fc_hs_deferred = true
+            local menu_ref = self.menu
+            local UIManager = require("ui/uimanager")
+            UIManager:nextTick(function()
+                menu_ref._fc_hs_deferred = false
+                menu_ref:updateItems()
+            end)
+            return
+        end
 
         local dir_path = self.entry and self.entry.path
         if not dir_path then return end
