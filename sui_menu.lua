@@ -33,10 +33,22 @@ local Bottombar = require("sui_bottombar")
 return function(SimpleUIPlugin)
 
 -- Register the plugin icon into KOReader's icon cache once per installer call
--- (guarded by the icons_path["simpleui_settings"] nil-check so it is a no-op
--- on subsequent reloads within the same session).
+-- Register the plugin icon into KOReader's icon system once per installer call.
+-- (guarded by a nil-check so it is a no-op on subsequent reloads within the
+-- same session).
 -- Moved here from module-level so it only runs when the menu is first opened,
 -- not at plugin startup.
+--
+-- Three-layer strategy for maximum device compatibility:
+--   1. Inject directly into ICONS_PATH (the resolved-path cache) via upvalue.
+--      Fastest; works on all standard KOReader builds.
+--   2. Inject the plugin's icons/ directory into ICONS_DIRS (the search-path
+--      list) via upvalue.  Lets IconWidget auto-discover the file even if
+--      ICONS_PATH injection fails (e.g. different Lua upvalue ordering).
+--   3. If both upvalue approaches fail (hardened/sandboxed builds), fall back
+--      to creating a minimal sub-class of IconWidget whose :init() sets
+--      self.file directly when self.icon == "simpleui_settings".
+--      This never touches private upvalues at all.
 do
     local src = debug.getinfo(1, "S").source or ""
     local plugin_root = (src:sub(1,1) == "@") and src:sub(2):match("^(.*)/[^/]+$") or nil
@@ -44,22 +56,73 @@ do
         local lfs_ok, lfs = pcall(require, "libs/libkoreader-lfs")
         local iw_ok,  iw  = pcall(require, "ui/widget/iconwidget")
         if lfs_ok and iw_ok and iw then
-            local iw_init = rawget(iw, "init")
+            local icon_file = plugin_root .. "/icons/settings.svg"
+            local icon_exists = lfs.attributes(icon_file, "mode") == "file"
+
+            -- Resolve the real :init function (may be inherited via metatable,
+            -- so we walk the chain rather than using rawget alone).
+            local iw_init = nil
+            do
+                local t = iw
+                while t and not iw_init do
+                    local f = rawget(t, "init")
+                    if type(f) == "function" then iw_init = f end
+                    local mt = getmetatable(t)
+                    t = mt and rawget(mt, "__index")
+                end
+            end
+
+            local injected_path = false
+            local injected_dir  = false
+
             if type(iw_init) == "function" then
-                local icons_path
-                for i = 1, 64 do
+                -- Strategy 1: inject into ICONS_PATH cache.
+                for i = 1, 128 do
                     local uname, uval = debug.getupvalue(iw_init, i)
                     if uname == nil then break end
                     if uname == "ICONS_PATH" and type(uval) == "table" then
-                        icons_path = uval; break
+                        if not uval["simpleui_settings"] and icon_exists then
+                            uval["simpleui_settings"] = icon_file
+                        end
+                        injected_path = true
+                        break
                     end
                 end
-                if icons_path and not icons_path["simpleui_settings"] then
-                    local p = plugin_root .. "/icons/settings.svg"
-                    if lfs.attributes(p, "mode") == "file" then
-                        icons_path["simpleui_settings"] = p
+                -- Strategy 2: inject our icons/ dir into ICONS_DIRS so that
+                -- IconWidget's own search loop finds the file automatically.
+                -- This also covers future icons added to the plugin.
+                if not injected_path or not icon_exists then
+                    for i = 1, 128 do
+                        local uname, uval = debug.getupvalue(iw_init, i)
+                        if uname == nil then break end
+                        if uname == "ICONS_DIRS" and type(uval) == "table" then
+                            -- Only add if not already present.
+                            local already = false
+                            for _, d in ipairs(uval) do
+                                if d == plugin_root .. "/icons" then already = true; break end
+                            end
+                            if not already then
+                                table.insert(uval, 1, plugin_root .. "/icons")
+                            end
+                            injected_dir = true
+                            break
+                        end
                     end
                 end
+            end
+
+            -- Strategy 3: if neither upvalue approach worked, patch IconWidget
+            -- so that icon="simpleui_settings" resolves to our file directly.
+            if not injected_path and not injected_dir and icon_exists then
+                local orig_init = iw.init
+                iw.init = function(self_iw)
+                    if self_iw.icon == "simpleui_settings" and not self_iw.file and not self_iw.image then
+                        self_iw.file = icon_file
+                        return
+                    end
+                    if type(orig_init) == "function" then orig_init(self_iw) end
+                end
+                logger.info("simpleui: icon registered via IconWidget.init patch (fallback)")
             end
         end
     end
@@ -1968,6 +2031,29 @@ SimpleUIPlugin.addToMainMenu = function(self, menu_items)
                 sub_item_table = {
                     { text = _("Status Bar"), sub_item_table_func = makeTopbarMenu   },
                     { text = _("Title Bar"),  sub_item_table_func = makeTitleBarMenu },
+                    {
+                        text       = _("Settings Tab"),
+                        help_text  = _("Show or hide the dedicated Simple UI tab in the menu bar.\nWhen hidden, Simple UI settings remain accessible via the main menu.\nTakes effect after a restart."),
+                        checked_func = function()
+                            return G_reader_settings:nilOrTrue("simpleui_settings_tab_enabled")
+                        end,
+                        keep_menu_open = true,
+                        callback = function()
+                            local on = G_reader_settings:nilOrTrue("simpleui_settings_tab_enabled")
+                            G_reader_settings:saveSetting("simpleui_settings_tab_enabled", not on)
+                            UIManager:show(ConfirmBox():new{
+                                text = string.format(
+                                    _("The Simple UI settings tab will be %s after restart.\n\nRestart now?"),
+                                    on and _("hidden") or _("shown")
+                                ),
+                                ok_text = _("Restart"), cancel_text = _("Later"),
+                                ok_callback = function()
+                                    G_reader_settings:flush()
+                                    UIManager:restartKOReader()
+                                end,
+                            })
+                        end,
+                    },
                 },
             },
             { text = _("Home Screen"), sub_item_table_func = makeHomescreenMenu },

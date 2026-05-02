@@ -138,6 +138,8 @@ function SimpleUIPlugin:init()
                 local orig_sut = menu_class.setUpdateItemTable
                 menu_class.setUpdateItemTable = function(m_self)
                     orig_sut(m_self)
+                    -- Respect the user's choice: default on (nilOrTrue), skip if explicitly false.
+                    if not G_reader_settings:nilOrTrue("simpleui_settings_tab_enabled") then return end
                     if type(m_self.tab_item_table) ~= "table" then return end
                     local build_fn = rawget(SimpleUIPlugin, "buildTabItems")
                     if type(build_fn) ~= "function" then return end
